@@ -1,6 +1,12 @@
-# Python dependencies
 numpy
 pandas
 requests
 flask
 beautifulsoup4
+openai
+speech_recognition
+pyttsx3
+pyperclip
+pillow
+python-dotenv
+SpeechRecognition
