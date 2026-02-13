@@ -1,68 +1,83 @@
+import pyttsx3
+import speech_recognition as sr
 import openai
+import webbrowser
 import os
-import json
 import subprocess
-import youtube_dl
 
-# Initialize OpenAI API client
-openai.api_key = os.getenv('OPENAI_API_KEY')
+# Initialize the text-to-speech engine
+engine = pyttsx3.init()
 
-# Define function for YouTube download
+# OpenAI API key configuration
+openai.api_key = 'YOUR_OPENAI_API_KEY'
 
-def download_youtube_video(url):
-    ydl_opts = {'format': 'best'}
-    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+# Function to speak the message
+def speak(text):
+    engine.say(text)
+    engine.runAndWait()
 
-# Define function for sending WhatsApp messages
+# Function for speech recognition
+def listen():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Listening...")
+        audio = recognizer.listen(source)
+    try:
+        command = recognizer.recognize_google(audio)
+        print(f"You said: {command}")
+        return command.lower()
+    except sr.UnknownValueError:
+        print("Sorry, I didn't catch that.")
+        return None
+    except sr.RequestError:
+        print("Could not request results from Google Speech Recognition service.")
+        return None
 
-def send_whatsapp_message(to, message):
-    # WhatsApp integration logic (using Twilio API or similar)
-    pass
+# Function to initiate YouTube playback
+def play_youtube_video(url):
+    webbrowser.open(url)
 
-# Define function for Spotify control
+# Function to send WhatsApp message (for example via a web browser)
+def send_whatsapp_message(contact, message):
+    webbrowser.open(f'https://wa.me/{contact}?text={message}')  # contact should be the phone number in international format
 
-def control_spotify(action):
-    # Spotify API logic for controlling playback
-    pass
+# Function to control Spotify (placeholder for actual implementation)
+def control_spotify(command):
+    print(f"Controlling Spotify with command: {command}")  # Implement Spotify control API integration here
 
-# Define function for controlling system settings
+# Function to control system (volume, shutdown, restart)
+def system_control(command):
+    if command == "shutdown":
+        subprocess.call(['shutdown', '/s'])
+    elif command == "restart":
+        subprocess.call(['shutdown', '/r'])
+    else:
+        print("Unknown system control command.")
 
-def control_system(action):
-    if action == 'brightness':
-        # Code to adjust brightness
-        pass
-    elif action == 'volume':
-        # Code to adjust volume
-        pass
-    elif action == 'shutdown':
-        subprocess.call(['shutdown', '/s', '/t', '1'])  # Shutdown
-    elif action == 'restart':
-        subprocess.call(['shutdown', '/r', '/t', '1'])  # Restart
-
-# Define AI chat function using OpenAI API
-
-def ai_chat(prompt):
+# Function to integrate OpenAI chat
+def chat_with_openai(prompt):
     response = openai.ChatCompletion.create(
-        model='gpt-4',
+        model='gpt-3.5-turbo',
         messages=[{'role': 'user', 'content': prompt}]
     )
-    return response['choices'][0]['message']['content']
+    return response.choices[0].message.content
 
-# Example usage
+# Main loop to listen for commands
 if __name__ == '__main__':
-    # Example command
-    command = 'Chat with me about the weather.'
-    print(ai_chat(command))
-    
-    # Download a YouTube video
-    download_youtube_video('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
-    
-    # Send a WhatsApp message
-    send_whatsapp_message('+1234567890', 'Hello from the assistant!')
-    
-    # Control Spotify
-    control_spotify('play')
-    
-    # Control system settings
-    control_system('shutdown')
+    speak("Hello! I am your STARK AI assistant.")
+    while True:
+        command = listen()
+        if command:
+            if "youtube" in command:
+                play_youtube_video("https://www.youtube.com/watch?v=dQw4w9WgXcQ")  # Example video
+            elif "whatsapp" in command:
+                send_whatsapp_message("+1234567890", "Hello from STARK AI!")  # Example contact
+            elif "play" in command:
+                control_spotify(command)
+            elif "shutdown" in command:
+                system_control("shutdown")
+            elif "restart" in command:
+                system_control("restart")
+            elif "chat" in command:
+                response = chat_with_openai(command)
+                speak(response)
