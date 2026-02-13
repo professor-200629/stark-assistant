@@ -4,9 +4,8 @@ requests
 flask
 beautifulsoup4
 openai
-speech_recognition
+SpeechRecognition
 pyttsx3
 pyperclip
 pillow
 python-dotenv
-SpeechRecognition
