@@ -1,91 +1,87 @@
-import speech_recognition as sr
 import pyttsx3
-import webbrowser
-import os
-import json
-from datetime import datetime
+import speech_recognition as sr
+import random
 
-class StarkAICompanion:
-    def __init__(self):
-        self.memory = {}
-        self.personality = 'cheerful'
-        self.engine = pyttsx3.init()
+# Initialize Text-to-Speech engine
+engine = pyttsx3.init()
 
-    def speak(self, text):
-        self.engine.say(text)
-        self.engine.runAndWait()
+def speak(text):
+    engine.say(text)
+    engine.runAndWait()
 
-    def listen(self):
-        # Placeholder for listening to commands
-        pass
+# Initialize speech recognition
+recognizer = sr.Recognizer()  
 
-    def load_memory(self):
-        # Load memory from a file
-        pass
+# Function to listen for user input
+def listen():
+    with sr.Microphone() as source:
+        print("Listening...")
+        audio = recognizer.listen(source)
+        command = ""
+        try:
+            command = recognizer.recognize_google(audio)
+            print(f"You said: {command}")
+        except sr.UnknownValueError:
+            speak("Sorry, I did not understand that.")
+        except sr.RequestError:
+            speak("Sorry, my speech service is down.")
+        return command
 
-    def save_memory(self):
-        # Save memory to a file
-        pass
+# Function to handle responses based on user command
+def respond_to_command(command):
+    # Define personality modes
+    cheerful_responses = ["Sure! Let's have some fun!", "I'm excited to help!", "Yay! Let's go!"]
+    thoughtful_responses = ["Hmm, that's an interesting thought.", "Let's ponder that a bit more.", "I think we should explore this further."]
+    humorous_responses = ["Why don’t scientists trust atoms? Because they make up everything!", "I told my computer I needed a break, and now it won’t stop sending me KitKat ads.", "Let’s have some fun with this!"]
+    professional_responses = ["Of course, I am here to assist you professionally.", "Let's adhere to the guidelines.", "Your request is important, let’s proceed efficiently."]
+    
+    # Handling greetings
+    if "hello" in command or "hi" in command:
+        speak(random.choice(cheerful_responses))
+    # Handling personality changes
+    elif "cheerful" in command:
+        speak("Switching to a cheerful mode!")
+    elif "thoughtful" in command:
+        speak("Switching to a thoughtful mode!")
+    elif "humorous" in command:
+        speak("Switching to a humorous mode!")
+    elif "professional" in command:
+        speak("Switching to a professional mode!")
+    # Movie suggestions
+    elif "movie" in command:
+        speak("I suggest you watch Inception or The Matrix.")
+    # Story creation
+    elif "story" in command:
+        speak("Once upon a time in a land far away...")
+    # Teaching mode
+    elif "teach" in command:
+        speak("What would you like to learn today?")
+    # Health advice
+    elif "health" in command:
+        speak("Make sure to stay hydrated and exercise regularly.")
+    # Entertainment
+    elif "entertainment" in command:
+        speak("How about a movie or a new book?")
+    # Shopping
+    elif "shopping" in command:
+        speak("What do you want to buy today?")
+    # Travel guidance
+    elif "travel" in command:
+        speak("Where would you like to travel to?")
+    # Task automation
+    elif "tasks" in command:
+        speak("What task would you like me to automate?")
+    # Security checks
+    elif "security" in command:
+        speak("Please input your security questions or codes.")
+    # Engaging dialogue
+    elif command:
+        speak("That's interesting! Tell me more.")
+    else:
+        speak("I'm here to assist with anything you need!")
 
-    def greet(self):
-        greetings = {'cheerful': 'Hello! How can I assist you today?','thoughtful': 'Good day! What brings you here?','humorous': 'Hey there! Ready for some fun?','professional': 'Greetings. How may I be of service?'}
-        self.speak(greetings[self.personality])
-
-    def respond_naturally(self, command):
-        # Placeholder for NLP processing of commands
-        pass
-
-    def movie_recommendations(self):
-        pass
-
-    def story_creation(self):
-        pass
-
-    def teach_subject(self, subject):
-        pass
-
-    def health_advice(self):
-        pass
-
-    def entertainment_suggestions(self):
-        pass
-
-    def shopping_assistant(self):
-        pass
-
-    def travel_recommendations(self):
-        pass
-
-    def set_reminder(self):
-        pass
-
-    def task_automation(self):
-        pass
-
-    def security_check(self):
-        pass
-
-    def create_story(self):
-        pass
-
-    def change_personality(self, personality_mode):
-        if personality_mode in ['cheerful', 'thoughtful', 'humorous', 'professional']:
-            self.personality = personality_mode
-        else:
-            self.speak("That's not a personality mode I know.")
-
-    def emotional_response(self):
-        pass
-
-    def engaging_dialogue(self):
-        pass
-
-    def run(self):
-        self.greet()
-        while True:
-            command = self.listen()
-            self.respond_naturally(command)
-
-if __name__ == '__main__':
-    companion = StarkAICompanion()
-    companion.run()
+# Main function to start interaction
+if __name__ == "__main__":
+    while True:
+        command = listen()
+        respond_to_command(command)
