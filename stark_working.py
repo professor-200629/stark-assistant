@@ -1,60 +1,32 @@
-import speech_recognition as sr  
-import pyttsx3  
-import webbrowser  
-import os  
+class STARK:
+    def __init__(self):
+        self.personalities = ['cheerful', 'thoughtful', 'humorous']
+        self.current_personality = 'cheerful'
 
-# Initialize the recognizer and text-to-speech engine  
-recognizer = sr.Recognizer()  
-tts_engine = pyttsx3.init()  
+    def respond(self, command):
+        if 'movie suggestion' in command.lower():
+            return self.movie_suggestion()
+        elif 'tell a story' in command.lower():
+            return self.create_story()
+        elif 'teach me' in command.lower():
+            return self.teach()
+        elif 'how are you' in command.lower():
+            return self.greet()
+        else:
+            return "I understand your command, but I'm still learning how to respond. Let's explore together!"
 
-# Function to speak text  
-def speak(text):  
-    tts_engine.say(text)  
-    tts_engine.runAndWait()  
+    def movie_suggestion(self):
+        return "How about watching 'Inception'? It's a great blend of action and thought-provoking themes!"
 
-# Function to listen for commands  
-def listen():  
-    with sr.Microphone() as source:  
-        print("Listening...")  
-        audio = recognizer.listen(source)  
-        try:  
-            command = recognizer.recognize_google(audio).lower()  
-            print(f"You said: {command}")  
-            return command  
-        except sr.UnknownValueError:  
-            print("Sorry, I did not hear that.")  
-            return None  
-        except sr.RequestError:  
-            print("Could not request results from Google Speech Recognition service.")  
-            return None  
+    def create_story(self):
+        return "Once upon a time, in a digital realm, an AI named STARK..."
 
-# Main function to run the assistant  
-def run_assistant():  
-    while True:  
-        command = listen()  
-        if command:  
-            if "youtube" in command:  
-                speak("Opening YouTube.")  
-                webbrowser.open("https://www.youtube.com")  
-            elif "whatsapp" in command:  
-                speak("Opening WhatsApp.")  
-                webbrowser.open("https://web.whatsapp.com")  
-            elif "spotify" in command:  
-                speak("Opening Spotify.")  
-                os.system("open /Applications/Spotify.app")  
-            elif "system control" in command:  
-                speak("Controlling system settings.")  
-                os.system("open /Applications/System Preferences.app")  
-            elif "openai chat" in command:  
-                speak("Opening OpenAI Chat.")  
-                webbrowser.open("https://chat.openai.com")  
-            elif "exit" in command:  
-                speak("Goodbye!")  
-                break  
-            else:  
-                speak("I didn't understand that.")  
+    def teach(self):
+        return "What would you like to learn today? I can help with many subjects!"
 
-# Start the assistant  
-if __name__ == "__main__":  
-    speak("Hello! I am your assistant. How can I help you today?")  
-    run_assistant()  
+    def greet(self):
+        return f"I'm doing great, thanks for asking! How can I assist you today?"
+
+# Example usage:
+stark = STARK()
+print(stark.respond('Give me a movie suggestion'))
