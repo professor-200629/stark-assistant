@@ -1,90 +1,75 @@
 import speech_recognition as sr
 import pyttsx3
-import openai
-import json
-import os
+import datetime
+import random
 
-class STARKShield:
+class STARKSHIELD:
     def __init__(self):
-        self.recognizer = sr.Recognizer()
-        self.engine = pyttsx3.init()
-        self.memory = self.load_memory()
-        self.roles = {'doctor': self.doctor_tasks, 'teacher': self.teacher_tasks, 'engineer': self.engineer_tasks,
-                      'designer': self.designer_tasks, 'mentor': self.mentor_tasks, 'storyteller': self.storyteller_tasks,
-                      'sportsman': self.sportsman_tasks}
-
-    def load_memory(self):
-        if os.path.exists('memory.json'):
-            with open('memory.json', 'r') as f:
-                return json.load(f)
-        return {}
-
-    def save_memory(self):
-        with open('memory.json', 'w') as f:
-            json.dump(self.memory, f)
-
-    def listen(self):
-        with sr.Microphone() as source:
-            self.engine.say("I'm listening...")
-            self.engine.runAndWait()
-            audio = self.recognizer.listen(source)
-        try:
-            command = self.recognizer.recognize_google(audio)
-            return command
-        except sr.UnknownValueError:
-            return "I didn't catch that."
-        except sr.RequestError:
-            return "Service is unavailable."
+        self.voice_engine = pyttsx3.init()
+        self.roles = ['doctor', 'teacher', 'engineer', 'designer', 'mentor', 'storyteller', 'sportsman']
 
     def speak(self, text):
-        self.engine.say(text)
-        self.engine.runAndWait()
+        self.voice_engine.say(text)
+        self.voice_engine.runAndWait()
 
-    def handle_command(self, command):
-        if "role" in command:
-            role = command.split(' ')[-1]
-            if role in self.roles:
-                self.roles[role]()
-            else:
-                self.speak("I don't recognize that role.")
-        else:
-            self.speak("I'm not sure how to help with that.")
+    def listen(self):
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            audio = recognizer.listen(source)
+            try:
+                return recognizer.recognize_google(audio)
+            except sr.UnknownValueError:
+                return "Sorry, I did not understand that."
+            except sr.RequestError:
+                return "Could not request results from Google Speech Recognition service."
 
-    def doctor_tasks(self):
-        # Implement doctor related tasks here
-        self.speak("I can help with health monitoring.")
+    def dynamic_role(self):
+        return random.choice(self.roles)
 
-    def teacher_tasks(self):
-        # Implement teacher related tasks here
-        self.speak("I can assist with learning materials.")
+    def health_monitoring(self):
+        # Implementation for health monitoring goes here
+        pass
 
-    def engineer_tasks(self):
-        # Implement engineer related tasks here
-        self.speak("I can assist with technical challenges.")
+    def teaching(self):
+        # Teaching related functionalities
+        pass
 
-    def designer_tasks(self):
-        # Implement designer related tasks here
-        self.speak("I can help with design work.")
+    def entertainment(self):
+        # Entertainment functionalities
+        pass
 
-    def mentor_tasks(self):
-        # Implement mentor related tasks here
-        self.speak("I can provide mentorship.")
+    def travel_guide(self):
+        # Travel guide functionalities
+        pass
 
-    def storyteller_tasks(self):
-        # Implement storytelling related tasks here
-        self.speak("I can tell you a story.")
+    def reminders(self):
+        # Reminder functionalities
+        pass
 
-    def sportsman_tasks(self):
-        # Implement sports related tasks here
-        self.speak("I can give sports advice.")
+    def shopping_assistant(self):
+        # Shopping functionalities
+        pass
 
-    def main(self):
-        self.speak("Welcome to the STARK SHIELD system.")
-        while True:
-            command = self.listen()
-            self.handle_command(command)
-            self.save_memory()
+    def security_features(self):
+        # Security features implementation
+        pass
+
+    def call_handling(self):
+        # Call handling implementation
+        pass
+
+    def messaging(self):
+        # Messaging functionalities
+        pass
 
 if __name__ == '__main__':
-    stark = STARKShield()
-    stark.main()
+    stark = STARKSHIELD()
+    stark.speak('STARK SHIELD system initialized.')
+    print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    
+    while True:
+        command = stark.listen()
+        if command.lower() == 'exit':
+            stark.speak('Shutting down STARK SHIELD.')
+            break
+        # Handle other commands here
