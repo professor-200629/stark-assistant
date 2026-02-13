@@ -1,104 +1,91 @@
 import speech_recognition as sr
 import pyttsx3
-import datetime
+import webbrowser
+import os
+import json
+from datetime import datetime
 
-class StarkShield:
+class StarkAICompanion:
     def __init__(self):
-        self.recognizer = sr.Recognizer()
-        self.engine = pyttsx3.init()
         self.memory = {}
-        self.health_data = {}
+        self.personality = 'cheerful'
+        self.engine = pyttsx3.init()
 
     def speak(self, text):
         self.engine.say(text)
         self.engine.runAndWait()
 
     def listen(self):
-        with sr.Microphone() as source:
-            print("Listening...")
-            audio = self.recognizer.listen(source)
-            command = self.recognizer.recognize_google(audio)
-            return command
-
-    def call_management(self):
-        # Code logic for handling calls
+        # Placeholder for listening to commands
         pass
 
-    def dynamic_roles(self, role):
-        if role == "doctor":
-            self.handle_doctor_role()
-        elif role == "teacher":
-            self.handle_teacher_role()
-        elif role == "engineer":
-            self.handle_engineer_role()
-        elif role == "designer":
-            self.handle_designer_role()
-        elif role == "mentor":
-            self.handle_mentor_role()
-        elif role == "storyteller":
-            self.handle_storyteller_role()
-        elif role == "sportsman":
-            self.handle_sportsman_role()
-
-    def handle_doctor_role(self):
-        # Code logic for doctor role
+    def load_memory(self):
+        # Load memory from a file
         pass
 
-    def handle_teacher_role(self):
-        # Code logic for teacher role
+    def save_memory(self):
+        # Save memory to a file
         pass
 
-    def handle_engineer_role(self):
-        # Code logic for engineer role
+    def greet(self):
+        greetings = {'cheerful': 'Hello! How can I assist you today?','thoughtful': 'Good day! What brings you here?','humorous': 'Hey there! Ready for some fun?','professional': 'Greetings. How may I be of service?'}
+        self.speak(greetings[self.personality])
+
+    def respond_naturally(self, command):
+        # Placeholder for NLP processing of commands
         pass
 
-    def handle_designer_role(self):
-        # Code logic for designer role
+    def movie_recommendations(self):
         pass
 
-    def handle_mentor_role(self):
-        # Code logic for mentor role
+    def story_creation(self):
         pass
 
-    def handle_storyteller_role(self):
-        # Code logic for storyteller role
+    def teach_subject(self, subject):
         pass
 
-    def handle_sportsman_role(self):
-        # Code logic for sportsman role
+    def health_advice(self):
         pass
 
-    def memory_system(self, key, value):
-        self.memory[key] = value
-
-    def health_monitoring(self):
-        # Code logic for health monitoring
+    def entertainment_suggestions(self):
         pass
 
-    def entertainment(self):
-        # Code logic for providing entertainment
+    def shopping_assistant(self):
         pass
 
-    def shopping(self):
-        # Code logic for shopping assistance
+    def travel_recommendations(self):
         pass
 
-    def travel_guide(self):
-        # Code logic for travel guidance
+    def set_reminder(self):
         pass
 
     def task_automation(self):
-        # Code logic for task automation
         pass
 
-    def security_features(self):
-        # Code logic for security features
+    def security_check(self):
         pass
 
-    def creativity(self):
-        # Code logic for creativity features
+    def create_story(self):
         pass
+
+    def change_personality(self, personality_mode):
+        if personality_mode in ['cheerful', 'thoughtful', 'humorous', 'professional']:
+            self.personality = personality_mode
+        else:
+            self.speak("That's not a personality mode I know.")
+
+    def emotional_response(self):
+        pass
+
+    def engaging_dialogue(self):
+        pass
+
+    def run(self):
+        self.greet()
+        while True:
+            command = self.listen()
+            self.respond_naturally(command)
 
 if __name__ == '__main__':
-    stark_shield = StarkShield()
-    stark_shield.speak("Welcome to Stark Shield, your personal assistant.")
+    companion = StarkAICompanion()
+    companion.run()
