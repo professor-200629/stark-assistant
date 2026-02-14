@@ -1,27 +1,22 @@
-# Memory Module for Long-Term Storage and Learning
-
-import datetime
+# memory_module.py
 
 class MemoryModule:
     def __init__(self):
-        self.storage = {}
+        self.memories = {}
 
-    def save_memory(self, key, value):
-        timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.storage[key] = {'value': value, 'timestamp': timestamp}
-        print(f'Memory saved: {key} => {value} at {timestamp}')
+    def store_memory(self, user_id, memory):
+        if user_id not in self.memories:
+            self.memories[user_id] = []
+        self.memories[user_id].append(memory)
 
-    def retrieve_memory(self, key):
-        if key in self.storage:
-            return self.storage[key]
-        else:
-            print(f'Memory for key {key} not found.')
-            return None
+    def retrieve_memories(self, user_id):
+        return self.memories.get(user_id, [])
 
-    def get_all_memories(self):
-        return self.storage
-
+    def update_profile(self, user_id, profile_info):
+        if user_id not in self.memories:
+            self.memories[user_id] = []
+        self.memories[user_id].append(profile_info)
+    
 # Example usage:
-# memory = MemoryModule()
-# memory.save_memory('favorite_color', 'blue')
-# print(memory.retrieve_memory('favorite_color'))
+# memory_module = MemoryModule()
+# memory_module.store_memory('user_123', 'User visited the homepage.')
