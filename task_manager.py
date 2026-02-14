@@ -51,9 +51,3 @@ class TaskManager:
         user_tasks = [task for task in self.tasks if task['user_id'] == user_id and not task['completed']]
         overdue_tasks = [task for task in user_tasks if task['due_date'] and task['due_date'] < datetime.now()]
         return overdue_tasks if overdue_tasks else "No overdue tasks, Sir."
-
-if __name__ == "__main__":
-    task_manager = TaskManager()
-    print(task_manager.add_task("Buy groceries", 1, datetime.now() + timedelta(days=2)))
-    print(task_manager.add_task("Finish project report", 1, datetime.now() + timedelta(days=1)))
-    print(task_manager.list_tasks(1))
