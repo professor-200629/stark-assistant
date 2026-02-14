@@ -1,23 +1,24 @@
-# Full Communication Functionality
+class CommunicationModule:
+    def __init__(self):
+        self.communication_logs = []
 
-This module implements various communication functionalities including email, SMS, messaging platforms, and call handling.
+    def send_message(self, recipient, message):
+        # Code to send message
+        log_entry = f"Sent message to {recipient}: {message}"
+        self.communication_logs.append(log_entry)
+        return log_entry
 
-## Email Functionality
+    def make_call(self, recipient):
+        # Code to make a call
+        log_entry = f"Called {recipient}"
+        self.communication_logs.append(log_entry)
+        return log_entry
 
-### send_email(recipient, subject, body):
-    # Code for sending an email
+    def get_logs(self):
+        return self.communication_logs
 
-## SMS Functionality
-
-### send_sms(recipient, message):
-    # Code for sending an SMS
-
-## Messaging Platforms
-
-### send_message(platform, recipient, message):
-    # Code for sending a message on various platforms
-
-## Call Handling
-
-### make_call(recipient):
-    # Code for making a call
+# Example usage:
+# comms = CommunicationModule()
+# comms.send_message('Alice', 'Hello!')
+# comms.make_call('Bob')
+# print(comms.get_logs())
