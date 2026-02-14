@@ -1,25 +1,16 @@
-import schedule
-import time
+# Routine and Automation Management
 
-class AutomationManager:
-    def __init__(self):
-        self.jobs = []
+from datetime import datetime
 
-    def add_job(self, job, schedule_time):
-        self.jobs.append((job, schedule_time))
-        schedule.every().day.at(schedule_time).do(job)
+"""
+This script manages routine tasks and automation.
+"""
 
-    def run_jobs(self):
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
-
-# Example job function
-
-def example_job():
-    print("Job executed!")
+def current_info():
+    '''Function to retrieve current date, time, and user login.'''
+    current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    user_login = 'professor-200629'
+    return f'Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): {current_time}\nCurrent User\'s Login: {user_login}'
 
 if __name__ == '__main__':
-    manager = AutomationManager()
-    manager.add_job(example_job, '05:10')  # Adjust time as necessary
-    manager.run_jobs()
+    print(current_info())
