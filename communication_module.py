@@ -1,15 +1,21 @@
 # Communication Module
 
-This module is designed to handle various communication tasks.
+This module handles communication tasks like sending messages and managing calls.
 
-## Functions:
+## Features
 
-- `send_message(recipient, message)`: Sends a message to a specified recipient.
-- `receive_message()`: Listens for incoming messages.
-- `log_communication()`: Logs communication details for record-keeping.
+- Send messages
+- Manage calls
 
-## Example Usage:
+## Code
 
-```python
-send_message('user@example.com', 'Hello, world!')
-```
+class Communication:
+    def send_message(self, recipient, message):
+        """Send a message to a recipient."""
+        # Implementation of message sending
+        print(f'Sending message to {recipient}: {message}')
+
+    def manage_call(self, action, participant):
+        """Manage a call (e.g., start, end, mute)."""
+        # Implementation of call management
+        print(f'{action.capitalize()} call with {participant}.')
