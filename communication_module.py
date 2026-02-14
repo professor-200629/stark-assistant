@@ -1,15 +1,15 @@
-class CommunicationModule:
-    def __init__(self):
-        pass
+# Communication Module
 
-    def send_sms(self, phone_number, message):
-        # SMS sending logic goes here
-        print(f'SMS sent to {phone_number}: {message}')
+This module is designed to handle various communication tasks.
 
-    def send_email(self, email_address, subject, body):
-        # Email sending logic goes here
-        print(f'Email sent to {email_address} with subject: {subject}')
+## Functions:
 
-    def send_message(self, platform, recipient, message):
-        # Messaging functionality for various platforms
-        print(f'Message sent to {recipient} on {platform}: {message}')
+- `send_message(recipient, message)`: Sends a message to a specified recipient.
+- `receive_message()`: Listens for incoming messages.
+- `log_communication()`: Logs communication details for record-keeping.
+
+## Example Usage:
+
+```python
+send_message('user@example.com', 'Hello, world!')
+```
