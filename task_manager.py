@@ -51,3 +51,9 @@ class TaskManager:
         user_tasks = [task for task in self.tasks if task['user_id'] == user_id and not task['completed']]
         overdue_tasks = [task for task in user_tasks if task['due_date'] and task['due_date'] < datetime.now()]
         return overdue_tasks if overdue_tasks else "No overdue tasks, Sir."
+
+    def get_upcoming_tasks(self, user_id, days=7):
+        """Get upcoming tasks for a user within the specified number of days"""
+        user_tasks = [task for task in self.tasks if task['user_id'] == user_id and not task['completed']]
+        upcoming_tasks = [task for task in user_tasks if task['due_date'] and datetime.now() <= task['due_date'] <= datetime.now() + timedelta(days=days)]
+        return upcoming_tasks if upcoming_tasks else "No upcoming tasks, Sir."
