@@ -2,7 +2,6 @@
 Integration tests for STARK v4.0 FastAPI application
 """
 
-import asyncio
 from fastapi.testclient import TestClient
 from main import app
 
