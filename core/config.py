@@ -58,9 +58,11 @@ class Config:
     
     @classmethod
     def validate_api_key(cls, api_key: str) -> bool:
-        """Validate API key if authentication is enabled"""
-        if not cls.ENABLE_API_KEY_AUTH:
-            return True
-        if cls.API_KEY is None:
-            return True  # No key configured, allow access
-        return api_key == cls.API_KEY
+        """
+        Validate API key if authentication is enabled
+        
+        Note: Use SecurityManager.validate_api_key for actual validation
+        This method is kept for backwards compatibility
+        """
+        from .security import SecurityManager
+        return SecurityManager.validate_api_key(api_key)

@@ -154,7 +154,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Ke
     if not SecurityManager.validate_api_key(x_api_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key",
+            detail="Authentication required",
         )
 
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict
 from datetime import datetime, timezone
+import uuid
 
 
 class EventType(Enum):
@@ -46,7 +47,7 @@ class Event:
     event_type: EventType
     data: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    event_id: str = field(default_factory=lambda: f"evt_{datetime.now(timezone.utc).timestamp()}")
+    event_id: str = field(default_factory=lambda: f"evt_{uuid.uuid4().hex[:16]}")
     
     def __post_init__(self):
         """Ensure event_type is an EventType enum"""
