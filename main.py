@@ -38,6 +38,25 @@ cancellation_token: Optional[CancellationToken] = None
 background_tasks: List[asyncio.Task] = []
 
 
+def ensure_initialized():
+    """Ensure global instances are initialized (for testing)"""
+    global event_bus, state_machine, cancellation_token
+    
+    if event_bus is None:
+        event_bus = EventBus(
+            max_queue_size=Config.EVENT_QUEUE_MAX_SIZE,
+            history_size=Config.EVENT_HISTORY_SIZE,
+        )
+    
+    if state_machine is None:
+        state_machine = StateMachine(initial_state=State.IDLE)
+    
+    if cancellation_token is None:
+        cancellation_token = CancellationToken()
+    
+    return event_bus, state_machine, cancellation_token
+
+
 # Pydantic models for API
 class EventRequest(BaseModel):
     """Request model for posting events"""
@@ -153,6 +172,7 @@ async def root():
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
+    ensure_initialized()
     return HealthResponse(
         status="healthy",
         version=Config.APP_VERSION,
@@ -166,6 +186,7 @@ async def health_check():
 async def get_state(x_api_key: Optional[str] = Header(None, alias="X-API-Key")):
     """Get current state (requires API key if enabled)"""
     await verify_api_key(x_api_key)
+    ensure_initialized()
     
     return StateResponse(
         current_state=state_machine.current_state.value,
@@ -182,6 +203,7 @@ async def post_event(
     Post an event to the system (requires API key if enabled)
     """
     await verify_api_key(x_api_key)
+    ensure_initialized()
     
     try:
         # Validate event type
@@ -217,6 +239,7 @@ async def get_event_history(
     Get event history from ring buffer (requires API key if enabled)
     """
     await verify_api_key(x_api_key)
+    ensure_initialized()
     
     history = event_bus.get_history(limit=limit)
     
@@ -243,6 +266,7 @@ async def get_state_transitions(
     Get state transition history (requires API key if enabled)
     """
     await verify_api_key(x_api_key)
+    ensure_initialized()
     
     transitions = state_machine.get_transition_history(limit=limit)
     
