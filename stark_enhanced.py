@@ -1,3 +1,8 @@
+# DEPRECATED: This file is a legacy prototype.
+# The canonical STARK implementation lives in the stark/ package.
+#   from stark import StarkAssistant
+# This file is kept for reference only and is not imported anywhere.
+
 # stark_enhanced.py
 
 class STARKShield:

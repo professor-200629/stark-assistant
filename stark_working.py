@@ -1,3 +1,8 @@
+# DEPRECATED: This file is a legacy prototype.
+# The canonical STARK implementation lives in the stark/ package.
+#   from stark import StarkAssistant
+# This file is kept for reference only and is not imported anywhere.
+
 # AI Companion Mode Implementation in stark_working.py
 
 # This implementation provides a full-fledged AI companion mode that can respond to user commands naturally and intelligently. It incorporates emotional intelligence, personality traits, and engaging dialogue to improve user experience.
