@@ -3,6 +3,13 @@ system_control.py – OS-level controls for STARK.
 
 Supports: shutdown, restart, lock, volume_up/down, brightness_up/down.
 Works on Windows, macOS, and Linux with graceful fallbacks.
+
+Security note
+-------------
+Destructive actions (shutdown, restart) are guarded by stark/automation.py
+which enforces ``STARK_SECURITY_PIN`` verification before this module
+executes them.  Non-destructive actions (volume, brightness, lock) are
+executed directly.
 """
 
 import os

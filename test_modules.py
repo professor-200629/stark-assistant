@@ -66,6 +66,30 @@ class TestCommunication(unittest.TestCase):
         self.assertIn("busy", reply.lower())
         self.assertIn("STARK", reply)
 
+    def test_whatsapp_minute_overflow_uses_timedelta(self):
+        """Scheduling at xx:59 should roll over to the next hour, not stay at :01."""
+        from communication_module import CommunicationModule
+        cm = CommunicationModule()
+        # Patch datetime inside communication_module to return 23:59
+        fake_dt = datetime.datetime(2025, 1, 1, 23, 59)
+        with patch("communication_module.datetime") as mock_dt:
+            mock_dt.datetime.now.return_value = fake_dt
+            mock_dt.timedelta = datetime.timedelta
+            # Patch pywhatkit to capture scheduled time
+            captured = {}
+            with patch.dict("sys.modules", {"pywhatkit": MagicMock()}):
+                import pywhatkit as pwk
+                def fake_sendwhatmsg(phone, msg, h, m):
+                    captured["h"] = h
+                    captured["m"] = m
+                pwk.sendwhatmsg = fake_sendwhatmsg
+                cm.send_whatsapp("+1234567890", "test msg")
+        # If timedelta is used: scheduled = 23:59 + 2min = 00:01 next day → h=0, m=1
+        # If modulo was used: (59 + 2) % 60 = 1, hour stays 23 → wrong
+        if captured:
+            self.assertEqual(captured.get("h"), 0, "Hour should roll to 00:00 next day")
+            self.assertEqual(captured.get("m"), 1, "Minute should be 01")
+
 
 class TestMemory(unittest.TestCase):
     def test_memory_storage(self):
@@ -86,6 +110,79 @@ class TestMemory(unittest.TestCase):
         mm = MemoryManager()
         result = mm.retrieve_information("nonexistent_key")
         self.assertIn("No information", result)
+
+
+class TestMemoryStore(unittest.TestCase):
+    """Tests for the new semantic memory store (stark/memory_store.py)."""
+
+    def _make_store(self):
+        from stark.memory_store import MemoryStore
+        return MemoryStore()
+
+    def test_store_and_exact_recall(self):
+        ms = self._make_store()
+        ms.store("favourite colour is blue")
+        self.assertIsNotNone(ms.recall_exact("favourite colour is blue"))
+
+    def test_semantic_recall_finds_related_fact(self):
+        """Semantic search should match even without an exact key."""
+        ms = self._make_store()
+        ms.store("sister birthday is June 3")
+        results = ms.recall("when is my sister birthday")
+        self.assertGreater(len(results), 0, "Expected at least one result")
+        self.assertIn("June 3", results[0]["value"])
+
+    def test_semantic_recall_returns_empty_for_no_match(self):
+        ms = self._make_store()
+        ms.store("dog name is Rex")
+        results = ms.recall("favourite cheese")
+        self.assertEqual(results, [])
+
+    def test_store_updates_existing_key(self):
+        ms = self._make_store()
+        ms.store("mood", "happy")
+        ms.store("mood", "excited")
+        self.assertEqual(ms.recall_exact("mood"), "excited")
+
+    def test_forget(self):
+        ms = self._make_store()
+        ms.store("temp fact")
+        self.assertTrue(ms.forget("temp fact"))
+        self.assertIsNone(ms.recall_exact("temp fact"))
+
+    def test_forget_unknown_key_returns_false(self):
+        ms = self._make_store()
+        self.assertFalse(ms.forget("nonexistent"))
+
+    def test_summary_empty(self):
+        ms = self._make_store()
+        summary = ms.summary()
+        self.assertIn("stored memories", summary.lower())
+
+    def test_summary_nonempty(self):
+        ms = self._make_store()
+        ms.store("hobby is chess")
+        summary = ms.summary()
+        self.assertIn("chess", summary)
+
+    def test_contains_operator(self):
+        ms = self._make_store()
+        ms.store("test key")
+        self.assertIn("test key", ms)
+        self.assertNotIn("other key", ms)
+
+    def test_len(self):
+        ms = self._make_store()
+        ms.store("a")
+        ms.store("b")
+        self.assertEqual(len(ms), 2)
+
+    def test_top_k_limits_results(self):
+        ms = self._make_store()
+        for i in range(10):
+            ms.store(f"favourite sport number {i}")
+        results = ms.recall("favourite sport", top_k=3)
+        self.assertLessEqual(len(results), 3)
 
 
 class TestStudyModule(unittest.TestCase):
@@ -124,7 +221,7 @@ class TestStudyModule(unittest.TestCase):
 
 
 class TestSystemControl(unittest.TestCase):
-    def test_unknown_action(self, ):
+    def test_unknown_action(self):
         """Unknown actions should not raise; they call speak_fn with an error msg."""
         from system_control import SystemControl
         messages = []
@@ -132,21 +229,170 @@ class TestSystemControl(unittest.TestCase):
         self.assertTrue(any("Unknown" in m for m in messages))
 
 
+class TestAutomation(unittest.TestCase):
+    """Tests for stark/automation.py — especially the security PIN guard."""
+
+    def test_non_destructive_action_executes_without_pin(self):
+        """Non-destructive actions should execute even without a PIN."""
+        from stark.automation import execute_action
+        spoken = []
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("STARK_SECURITY_PIN", None)
+            with patch("stark.automation.SystemControl") as mock_sc:
+                result = execute_action("volume_up", speak_fn=spoken.append)
+        self.assertTrue(result)
+        mock_sc.execute.assert_called_once_with("volume_up", speak_fn=spoken.append)
+
+    def test_destructive_action_allowed_when_no_pin_set(self):
+        """When STARK_SECURITY_PIN is unset, destructive actions proceed."""
+        from stark.automation import execute_action
+        spoken = []
+        os.environ.pop("STARK_SECURITY_PIN", None)
+        with patch("stark.automation.SystemControl") as mock_sc:
+            result = execute_action("shutdown", speak_fn=spoken.append, listen_fn=lambda **_: "")
+        self.assertTrue(result)
+        mock_sc.execute.assert_called_once()
+
+    def test_destructive_action_blocked_on_wrong_pin(self):
+        """Wrong PIN must block the destructive action."""
+        from stark.automation import execute_action
+        spoken = []
+        with patch.dict(os.environ, {"STARK_SECURITY_PIN": "1234"}):
+            with patch("stark.automation.SystemControl") as mock_sc:
+                result = execute_action(
+                    "shutdown",
+                    speak_fn=spoken.append,
+                    listen_fn=lambda **_: "9999",  # wrong PIN
+                )
+        self.assertFalse(result)
+        mock_sc.execute.assert_not_called()
+        self.assertTrue(any("incorrect" in s.lower() for s in spoken))
+
+    def test_destructive_action_allowed_on_correct_pin(self):
+        """Correct PIN must allow the destructive action."""
+        from stark.automation import execute_action
+        spoken = []
+        with patch.dict(os.environ, {"STARK_SECURITY_PIN": "1234"}):
+            with patch("stark.automation.SystemControl") as mock_sc:
+                result = execute_action(
+                    "shutdown",
+                    speak_fn=spoken.append,
+                    listen_fn=lambda **_: "1234",  # correct
+                )
+        self.assertTrue(result)
+        mock_sc.execute.assert_called_once()
+
+    def test_destructive_action_blocked_when_no_listener(self):
+        """If no listen_fn is provided but PIN is set, block the action."""
+        from stark.automation import execute_action
+        spoken = []
+        with patch.dict(os.environ, {"STARK_SECURITY_PIN": "1234"}):
+            with patch("stark.automation.SystemControl") as mock_sc:
+                result = execute_action("restart", speak_fn=spoken.append, listen_fn=None)
+        self.assertFalse(result)
+        mock_sc.execute.assert_not_called()
+
+
+class TestIntentRegistry(unittest.TestCase):
+    """Tests for stark/brain.py IntentRegistry."""
+
+    def test_dispatch_calls_correct_handler(self):
+        from stark.brain import IntentRegistry
+        reg = IntentRegistry()
+        called_with = []
+        reg.register(
+            "greet",
+            lambda c: "hello" in c,
+            lambda c, **kw: called_with.append(c),
+        )
+        reg.dispatch("hello world")
+        self.assertEqual(called_with, ["hello world"])
+
+    def test_higher_priority_wins(self):
+        from stark.brain import IntentRegistry
+        reg = IntentRegistry()
+        results = []
+        reg.register("low",  lambda c: True, lambda c, **kw: results.append("low"),  priority=10)
+        reg.register("high", lambda c: True, lambda c, **kw: results.append("high"), priority=90)
+        reg.dispatch("anything")
+        self.assertEqual(results, ["high"])  # only the highest-priority handler runs
+
+    def test_dispatch_returns_none_when_no_match(self):
+        from stark.brain import IntentRegistry
+        reg = IntentRegistry()
+        reg.register("greet", lambda c: "hello" in c, lambda c, **kw: "greeted")
+        result = reg.dispatch("goodbye")
+        self.assertIsNone(result)
+
+    def test_intent_names_in_priority_order(self):
+        from stark.brain import IntentRegistry
+        reg = IntentRegistry()
+        reg.register("b", lambda c: False, lambda c, **kw: None, priority=10)
+        reg.register("a", lambda c: False, lambda c, **kw: None, priority=90)
+        self.assertEqual(reg.intent_names(), ["a", "b"])
+
+
+class TestMainController(unittest.TestCase):
+    """Tests for the fixed main_controller.py (broken import bug)."""
+
+    def test_import_succeeds(self):
+        """main_controller must import without raising ImportError."""
+        import main_controller  # noqa: F401
+
+    def test_instantiation(self):
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("user_test")
+        self.assertEqual(api.user_id, "user_test")
+
+    def test_add_and_list_task(self):
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("user_test")
+        api.process_command("add_task", "Buy groceries")
+        tasks = api.process_command("list_tasks")
+        self.assertIsInstance(tasks, list)
+        self.assertEqual(len(tasks), 1)
+
+    def test_store_and_retrieve_memory(self):
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("user_test")
+        api.process_command("store_memory", "language", "Python")
+        result = api.process_command("retrieve_memory", "language")
+        self.assertEqual(result, "Python")
+
+    def test_get_status_structure(self):
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("user_test")
+        status = api.get_status()
+        self.assertIn("user_id", status)
+        self.assertIn("uptime", status)
+        self.assertIn("active_tasks", status)
+        self.assertIn("stored_memories", status)
+
+    def test_unrecognized_command(self):
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("user_test")
+        result = api.process_command("unknown_command_xyz")
+        self.assertIn("not recognized", result.lower())
+
+
 class TestStarkAssistant(unittest.TestCase):
     """Unit tests for StarkAssistant that do not require audio devices."""
 
     def _make_assistant(self):
         """Create a StarkAssistant with TTS/audio patched out."""
-        import stark  # noqa: PLC0415 – imported after stubs are in sys.modules
+        import stark       # stark/ package (not the old stark.py single-file module)
+        import stark.core  # so we can patch speak at the core level
 
-        # Silence speak() during tests
+        # Silence speak() in both the package namespace and core module
         stark.speak = lambda text: None
+        stark.core.speak = lambda text: None
 
         # Construct without calling __init__ (avoids hardware + API calls)
         assistant = stark.StarkAssistant.__new__(stark.StarkAssistant)
         assistant.current_role = "assistant"
-        assistant.memory = {}
-        assistant.conversation_history = []
+
+        from stark.memory_store import MemoryStore
+        assistant.memory = MemoryStore()
         assistant.exam_schedule = {}
         assistant.study_timetable = {}
         assistant.busy = False
@@ -155,7 +401,13 @@ class TestStarkAssistant(unittest.TestCase):
         )
         assistant.missed_calls = {}
         assistant.work_start_time = None
-        assistant._gemini_model = None
+        # Minimal brain stub so process_command doesn't crash
+        from stark.brain import Brain, IntentRegistry
+        assistant._brain = Brain.__new__(Brain)
+        assistant._brain._model = None
+        assistant._brain._history = []
+        assistant._registry = IntentRegistry()
+        assistant._register_intents()
         return assistant
 
     def test_remember_and_recall(self):
@@ -220,7 +472,7 @@ class TestStarkAssistant(unittest.TestCase):
 
     def test_ask_ai_no_key(self):
         a = self._make_assistant()
-        response = a.ask_ai("hello")
+        response = a._brain.ask("hello")
         self.assertIn("not available", response.lower())
 
     def test_create_study_timetable(self):
@@ -232,11 +484,28 @@ class TestStarkAssistant(unittest.TestCase):
 
     def test_send_whatsapp_no_pywhatkit(self):
         a = self._make_assistant()
-        # pywhatkit may not be installed in test env - expect graceful message
+        # pywhatkit may not be installed in test env — expect graceful message
         result = a.send_whatsapp_message("+1234567890", "test")
-        # Either scheduled or "not installed"
         self.assertIsInstance(result, str)
         self.assertTrue(len(result) > 0)
+
+    def test_intent_registry_has_expected_intents(self):
+        """The registry should contain all the named intents we registered."""
+        a = self._make_assistant()
+        names = a._registry.intent_names()
+        expected = {
+            "exit", "greeting", "shutdown", "restart", "youtube",
+            "open_site", "remember", "tell_time", "tell_date",
+        }
+        for intent in expected:
+            self.assertIn(intent, names, f"Intent '{intent}' not registered")
+
+    def test_semantic_recall_after_remember(self):
+        """recall_semantic should find a memory using word overlap, not exact key."""
+        a = self._make_assistant()
+        a.remember("sister birthday is June 3")
+        result = a.recall_semantic("when is sister birthday")
+        self.assertIn("June 3", result)
 
 
 if __name__ == "__main__":

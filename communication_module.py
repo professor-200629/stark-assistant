@@ -43,8 +43,10 @@ class CommunicationModule:
             import pywhatkit as pwk  # type: ignore
 
             now = datetime.datetime.now()
-            h = hour if hour is not None else now.hour
-            m = minute if minute is not None else (now.minute + 2) % 60
+            # Add 2 minutes with proper overflow into the next hour
+            scheduled = now + datetime.timedelta(minutes=2)
+            h = hour if hour is not None else scheduled.hour
+            m = minute if minute is not None else scheduled.minute
             pwk.sendwhatmsg(phone_number, message, h, m)
             self._log_message(phone_number, message, channel="whatsapp")
             return f"WhatsApp message scheduled to {phone_number}, Sir."
