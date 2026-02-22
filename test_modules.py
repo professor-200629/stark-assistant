@@ -1,3 +1,10 @@
+import sys
+import os
+# Ensure the project root is always on sys.path so local module imports
+# work regardless of the working directory or how the file is invoked
+# (e.g. `python test_modules.py`, `python -m unittest discover`, etc.)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import unittest
 from datetime import date, timedelta
 

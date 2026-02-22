@@ -120,7 +120,7 @@ Once `stark.py` is running, speak any of the following:
 ### 6. Run the tests
 
 ```bash
-python -m unittest discover -v
+python test_modules.py
 ```
 
 ---
