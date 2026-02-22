@@ -2,6 +2,23 @@
 communication_module.py – Messaging and communication for STARK.
 
 Supports WhatsApp (via pywhatkit), SMS (via Twilio), and in-app notifications.
+
+Known limitations
+-----------------
+**WhatsApp (pywhatkit)**
+    ``pywhatkit`` drives WhatsApp Web via browser automation.  This is a
+    prototype-grade mechanism.  Known failure modes:
+
+    * Breaks when Chrome/Chromium updates change the WhatsApp Web DOM.
+    * Fails in headless or server environments (no browser window).
+    * Requires the user's phone to remain logged in to WhatsApp Web.
+    * The session can expire silently, causing messages to be lost.
+
+    Upgrade path for production:
+        1. WhatsApp Business API (Meta Cloud API) — official, reliable,
+           requires a verified business account.
+        2. Twilio for WhatsApp — paid, battle-tested, works headlessly.
+        3. Signal / Telegram Bot API — open platforms with official SDKs.
 """
 
 import datetime

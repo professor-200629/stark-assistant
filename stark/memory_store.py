@@ -3,7 +3,7 @@ stark/memory_store.py – Unified semantic memory store for STARK.
 
 Replaces the fragmented dict/sqlite/memory_module constellation with a
 single class that supports both exact-key lookup *and* fuzzy natural-
-language recall via word-overlap (Jaccard) scoring.
+language recall via word-overlap (Jaccard) scoring with synonym expansion.
 
 Example
 -------
@@ -12,12 +12,35 @@ Example
 >>> results = ms.recall("when is my sister birthday")
 >>> results[0]["value"]
 'sister birthday is June 3'
+>>> # Synonym expansion means "sibling" also matches "sister"
+>>> ms.recall("when is sibling birthday")[0]["value"]
+'sister birthday is June 3'
+
+Upgrade path
+------------
+The current recall algorithm uses token-level Jaccard similarity augmented
+with a hand-crafted synonym table.  This handles common paraphrases well
+but will miss deeper semantic equivalences (e.g. "buy cake" ↔ "birthday").
+
+When the Gemini ``text-embedding-004`` model becomes available in the
+project's Google Cloud project, the upgrade path is:
+
+1. On ``store()``, call ``genai.embed_content(text)`` and persist the
+   embedding vector alongside the fact.
+2. On ``recall()``, embed the query and rank stored facts by cosine
+   similarity instead of Jaccard.
+3. Keep the current Jaccard path as a fallback when embeddings are
+   unavailable (no API key / offline mode).
 """
 
 import datetime
 import re
 from typing import Optional
 
+
+# ---------------------------------------------------------------------------
+# Stop-word list
+# ---------------------------------------------------------------------------
 
 # Words that add no search signal
 _STOP_WORDS = frozenset({
@@ -31,6 +54,50 @@ _STOP_WORDS = frozenset({
     "would", "could", "should", "may", "might", "can",
     "please", "stark",
 })
+
+# ---------------------------------------------------------------------------
+# Synonym table
+# ---------------------------------------------------------------------------
+
+# Maps a token to the set of tokens that should be treated as equivalent
+# for recall purposes.  Both directions must be listed.
+#
+# This is intentionally kept small.  Deep semantic similarity (e.g.
+# "plan a party" ↔ "birthday celebration") requires embedding-based recall
+# (see upgrade-path note in the module docstring).
+_SYNONYMS: dict[str, set] = {
+    # Family
+    "sibling":  {"sister", "brother"},
+    "sister":   {"sibling"},
+    "brother":  {"sibling"},
+    "mom":      {"mother", "mama", "mum"},
+    "mother":   {"mom", "mama", "mum"},
+    "mum":      {"mom", "mother"},
+    "dad":      {"father", "papa"},
+    "father":   {"dad", "papa"},
+    # Time/events
+    "birthday": {"bday", "born"},
+    "bday":     {"birthday"},
+    # Communication
+    "phone":    {"mobile", "cell", "number"},
+    "mobile":   {"phone", "cell"},
+    "cell":     {"phone", "mobile"},
+    # Work
+    "work":     {"job", "office", "career"},
+    "job":      {"work", "career"},
+    "career":   {"work", "job"},
+    # Location
+    "home":     {"house", "flat", "apartment"},
+    "house":    {"home"},
+}
+
+
+def _expand_with_synonyms(tokens: list) -> frozenset:
+    """Return *tokens* plus all their first-level synonyms as a frozen set."""
+    expanded = set(tokens)
+    for token in tokens:
+        expanded.update(_SYNONYMS.get(token, set()))
+    return frozenset(expanded)
 
 
 def _tokenize(text: str) -> list:
@@ -124,9 +191,10 @@ class MemoryStore:
         """
         Return the *top_k* most semantically relevant memories for *query*.
 
-        Scoring uses Jaccard similarity between the query token set and the
-        stored fact token set, so ``"sister birthday"`` will match
-        ``"sister birthday is June 3"`` without requiring an exact key.
+        Scoring uses Jaccard similarity between the *synonym-expanded* query
+        token set and the *synonym-expanded* stored fact token set.  This
+        means ``"sibling birthday"`` will match ``"sister birthday is June 3"``
+        because ``"sibling"`` expands to include ``"sister"``.
 
         Returns
         -------
@@ -134,13 +202,13 @@ class MemoryStore:
             Each dict has keys ``key``, ``value``, ``score``, ``timestamp``.
             Sorted by descending score.  Empty list if nothing matches.
         """
-        query_tokens = set(_tokenize(query))
+        query_tokens = _expand_with_synonyms(_tokenize(query))
         if not query_tokens:
             return []
 
         scores: dict = {}
         for key, entry in self._facts.items():
-            fact_tokens = set(entry["words"])
+            fact_tokens = _expand_with_synonyms(entry["words"])
             intersection = query_tokens & fact_tokens
             if intersection:
                 union = query_tokens | fact_tokens

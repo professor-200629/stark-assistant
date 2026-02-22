@@ -4,6 +4,23 @@ stark/automation.py – System-automation helpers for STARK.
 Delegates to system_control.SystemControl, adding a security guard so that
 destructive operations (shutdown, restart) require PIN confirmation when
 ``STARK_SECURITY_PIN`` is set in the environment.
+
+Known limitations – Voice PIN
+------------------------------
+The current security mechanism asks the user to *say* their PIN aloud.
+This is a prototype-grade guard.  Known weaknesses:
+
+* Anyone within earshot can hear the PIN.
+* A recorded voice clip could replay the PIN.
+
+Upgrade path for production:
+    1. **Voiceprint authentication** – verify that the speaker's voice
+       matches a stored voiceprint (e.g. using the SpeechBrain or Resemblyzer
+       library) before accepting the PIN.
+    2. **Device-lock state** – on mobile platforms, refuse destructive
+       actions unless the device is unlocked via biometrics/PIN by the OS.
+    3. **2-step confirmation** – require a separate confirmation from a
+       trusted device (e.g. push notification to phone).
 """
 
 import os

@@ -159,6 +159,22 @@ class Brain:
         except Exception as exc:  # noqa: BLE001
             return f"I encountered an error with my AI brain, Sir: {exc}"
 
+    def generate_content(self, prompt: str) -> str:
+        """
+        Send a raw *prompt* to the Gemini model and return the text response.
+
+        This is a lower-level method intended for callers that need custom
+        prompts (e.g. ``Planner``) without the conversation-history wrapping
+        that ``ask()`` provides.  Returns an empty string when the brain is
+        unavailable.
+        """
+        if not self.available:
+            return ""
+        try:
+            return self._model.generate_content(prompt).text
+        except Exception:  # noqa: BLE001
+            return ""
+
     def generate_mcq(self, topic: str, num_questions: int = 5) -> str:
         """Generate *num_questions* MCQ questions on *topic* via Gemini."""
         if not self.available:

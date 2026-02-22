@@ -1,29 +1,43 @@
 """
-main_controller.py – Orchestrator for the STARK REST API layer.
+main_controller.py – Thin API shim for the STARK REST / UI layer.
 
-This module provides the StarkAssistant class used by api_interface.py and
-ui_interface.py.  It wires together TaskManager, CommunicationModule, and
-MemoryManager and exposes a process_command() interface for the HTTP API.
+Architecture
+------------
+There are two entry points into STARK:
 
-NOTE: This is separate from stark/core.py which is the voice-assistant
-orchestrator.  This module focuses on the structured command API.
+* **Voice assistant** – ``stark/core.py`` (``StarkAssistant``).  This is the
+  canonical AI brain that drives the interactive voice loop.
+* **Structured API** – this file.  It exposes a keyword-command interface used
+  by ``api_interface.py`` and ``ui_interface.py``.
+
+To prevent the two layers from drifting, all memory operations in this module
+delegate to ``stark.memory_store.MemoryStore`` — the same implementation used
+by the voice assistant.  That way a fact stored via the API is immediately
+visible in the voice loop and vice-versa.
+
+Ownership boundaries
+--------------------
+* Task management   → ``task_manager.TaskManager``
+* Communication     → ``communication_module.CommunicationModule``
+* Memory            → ``stark.memory_store.MemoryStore``  (shared with voice)
 """
 
 from datetime import datetime
 
 from communication_module import CommunicationModule
-from memory import MemoryManager
+from stark.memory_store import MemoryStore
 from task_manager import TaskManager
 
 
 class StarkAssistant:
-    """Main orchestrator module that coordinates all assistant modules."""
+    """API-layer orchestrator that coordinates TaskManager, CommunicationModule,
+    and the shared MemoryStore."""
 
     def __init__(self, user_id: str) -> None:
         self.user_id = user_id
         self.task_manager = TaskManager()
         self.communication_manager = CommunicationModule()
-        self.memory_manager = MemoryManager()
+        self.memory_store = MemoryStore()  # shared implementation with voice layer
         self.start_time = datetime.now()
         print(f"Welcome, Sir. I am at your service. Current time: {self.start_time}")
 
@@ -59,16 +73,27 @@ class StarkAssistant:
         elif command == "get_notifications":
             return self.communication_manager.get_notifications(self.user_id)
 
-        # Memory Commands — delegates to MemoryManager (memory.py)
+        # Memory Commands — delegated to MemoryStore (same as voice layer)
         elif command == "store_memory":
             # args: key, value
-            return self.memory_manager.store_information(args[0], args[1])
+            self.memory_store.store(args[0], value=args[1])
+            return f"Memory stored, Sir: {args[0]} = {args[1]}"
         elif command == "retrieve_memory":
-            # args: key
-            return self.memory_manager.retrieve_information(args[0])
+            # Try exact key first; fall back to best semantic match
+            key = args[0]
+            exact = self.memory_store.recall_exact(key)
+            if exact is not None:
+                return exact
+            results = self.memory_store.recall(key, top_k=1)
+            if results:
+                return results[0]["value"]
+            return f"No memory found for '{key}', Sir."
         elif command == "search_memories":
-            # args: query
-            return self.memory_manager.search_memories(args[0])
+            # args: query — returns list of matching facts
+            results = self.memory_store.recall(args[0])
+            if results:
+                return results
+            return f"No memories found matching '{args[0]}', Sir."
 
         else:
             return "Command not recognized, Sir. Please try again."
@@ -83,7 +108,7 @@ class StarkAssistant:
                 [t for t in self.task_manager.tasks if not t["completed"]]
             ),
             "pending_messages": len(messages) if isinstance(messages, list) else 0,
-            "stored_memories": len(self.memory_manager.learned_information),
+            "stored_memories": len(self.memory_store),
         }
 
     def shutdown(self) -> bool:

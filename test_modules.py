@@ -132,6 +132,28 @@ class TestMemoryStore(unittest.TestCase):
         self.assertGreater(len(results), 0, "Expected at least one result")
         self.assertIn("June 3", results[0]["value"])
 
+    def test_synonym_sibling_matches_sister(self):
+        """'sibling' query must match a fact containing 'sister' via synonym table."""
+        ms = self._make_store()
+        ms.store("sister birthday is June 3")
+        results = ms.recall("when is sibling birthday")
+        self.assertGreater(len(results), 0, "Expected synonym expansion to find 'sister' fact")
+        self.assertIn("June 3", results[0]["value"])
+
+    def test_synonym_mom_matches_mother(self):
+        ms = self._make_store()
+        ms.store("mother phone number is 9876")
+        results = ms.recall("what is mom number")
+        self.assertGreater(len(results), 0, "Expected 'mom' to match 'mother'")
+        self.assertIn("9876", results[0]["value"])
+
+    def test_synonym_job_matches_work(self):
+        ms = self._make_store()
+        ms.store("work address is Main Street")
+        results = ms.recall("what is job address")
+        self.assertGreater(len(results), 0, "Expected 'job' to match 'work'")
+        self.assertIn("Main Street", results[0]["value"])
+
     def test_semantic_recall_returns_empty_for_no_match(self):
         ms = self._make_store()
         ms.store("dog name is Rex")
@@ -403,9 +425,11 @@ class TestStarkAssistant(unittest.TestCase):
         assistant.work_start_time = None
         # Minimal brain stub so process_command doesn't crash
         from stark.brain import Brain, IntentRegistry
+        from stark.planner import Planner
         assistant._brain = Brain.__new__(Brain)
         assistant._brain._model = None
         assistant._brain._history = []
+        assistant._planner = Planner(assistant._brain)
         assistant._registry = IntentRegistry()
         assistant._register_intents()
         return assistant
@@ -495,7 +519,7 @@ class TestStarkAssistant(unittest.TestCase):
         names = a._registry.intent_names()
         expected = {
             "exit", "greeting", "shutdown", "restart", "youtube",
-            "open_site", "remember", "tell_time", "tell_date",
+            "open_site", "remember", "tell_time", "tell_date", "plan",
         }
         for intent in expected:
             self.assertIn(intent, names, f"Intent '{intent}' not registered")
@@ -506,6 +530,154 @@ class TestStarkAssistant(unittest.TestCase):
         a.remember("sister birthday is June 3")
         result = a.recall_semantic("when is sister birthday")
         self.assertIn("June 3", result)
+
+
+class TestPlanner(unittest.TestCase):
+    """Tests for stark/planner.py."""
+
+    def _make_planner(self, brain_available=False):
+        from stark.planner import Planner
+        from stark.brain import Brain
+        brain = Brain.__new__(Brain)
+        brain._model = MagicMock() if brain_available else None
+        brain._history = []
+        return Planner(brain)
+
+    def test_plan_returns_list(self):
+        p = self._make_planner()
+        result = p.plan("prepare for my math exam")
+        self.assertIsInstance(result, list)
+        self.assertGreater(len(result), 0)
+
+    def test_plan_exam_uses_exam_template(self):
+        """Without AI brain, exam goals should use the exam template."""
+        p = self._make_planner(brain_available=False)
+        steps = p.plan("prepare for my exam")
+        # Exam template includes a timetable step
+        combined = " ".join(steps).lower()
+        self.assertIn("timetable", combined)
+
+    def test_plan_project_uses_project_template(self):
+        p = self._make_planner(brain_available=False)
+        steps = p.plan("build a new project")
+        combined = " ".join(steps).lower()
+        self.assertIn("milestone", combined)
+
+    def test_plan_unknown_uses_default_template(self):
+        p = self._make_planner(brain_available=False)
+        steps = p.plan("something completely unrecognised xyz")
+        self.assertIsInstance(steps, list)
+        self.assertGreater(len(steps), 0)
+
+    def test_plan_as_text_contains_goal(self):
+        p = self._make_planner(brain_available=False)
+        text = p.plan_as_text("study for exams")
+        self.assertIn("study for exams", text)
+        self.assertIn("1.", text)  # numbered steps
+
+    def test_plan_with_ai_fallback_on_exception(self):
+        """If Gemini raises, planner should fall back to template silently."""
+        from stark.planner import Planner
+        from stark.brain import Brain
+        brain = Brain.__new__(Brain)
+        brain._model = MagicMock()
+        brain._history = []
+        # generate_content (public API) raises
+        brain._model.generate_content.side_effect = RuntimeError("API error")
+        p = Planner(brain)
+        steps = p.plan("plan my travel trip")
+        # Should fall back to travel template
+        combined = " ".join(steps).lower()
+        self.assertIn("destination", combined)
+
+    def test_plan_with_ai_parses_numbered_list(self):
+        """If Gemini returns numbered lines, they should be parsed correctly."""
+        from stark.planner import Planner
+        from stark.brain import Brain
+        brain = Brain.__new__(Brain)
+        brain._model = MagicMock()
+        brain._history = []
+        brain._model.generate_content.return_value = MagicMock(
+            text="1. Step one\n2. Step two\n3. Step three\n"
+        )
+        p = Planner(brain)
+        steps = p.plan("some goal")
+        self.assertEqual(steps, ["Step one", "Step two", "Step three"])
+
+    def test_plan_with_ai_parses_dashed_list(self):
+        """Gemini sometimes returns dashes instead of numbers."""
+        from stark.planner import Planner
+        from stark.brain import Brain
+        brain = Brain.__new__(Brain)
+        brain._model = MagicMock()
+        brain._history = []
+        brain._model.generate_content.return_value = MagicMock(
+            text="- Alpha\n- Beta\n- Gamma\n"
+        )
+        p = Planner(brain)
+        steps = p.plan("some goal")
+        self.assertEqual(steps, ["Alpha", "Beta", "Gamma"])
+
+
+class TestUnifiedMemory(unittest.TestCase):
+    """
+    Verifies that main_controller.py and stark/core.py share the same
+    MemoryStore implementation, preventing the two-brain drift described
+    in the problem statement.
+    """
+
+    def test_main_controller_uses_memory_store(self):
+        """main_controller.StarkAssistant must use MemoryStore, not MemoryManager."""
+        from main_controller import StarkAssistant as ApiAssistant
+        from stark.memory_store import MemoryStore
+        api = ApiAssistant("test_user")
+        self.assertIsInstance(api.memory_store, MemoryStore)
+        # Confirm the old MemoryManager attribute no longer exists
+        self.assertFalse(
+            hasattr(api, "memory_manager"),
+            "memory_manager (old MemoryManager) should not exist on ApiAssistant",
+        )
+
+    def test_api_store_and_semantic_retrieve(self):
+        """Storing via API layer should be findable by semantic recall."""
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("test_user")
+        api.process_command("store_memory", "sister_birthday", "June 3")
+        # search_memories uses recall() which supports synonyms — 'sibling' → 'sister'
+        results = api.process_command("search_memories", "sibling birthday")
+        self.assertIsInstance(results, list)
+        self.assertGreater(len(results), 0)
+        self.assertIn("June 3", results[0]["value"])
+
+    def test_api_retrieve_exact_key(self):
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("test_user")
+        api.process_command("store_memory", "language", "Python")
+        result = api.process_command("retrieve_memory", "language")
+        self.assertEqual(result, "Python")
+
+    def test_api_retrieve_semantic_fallback(self):
+        """retrieve_memory should fall back to semantic search when exact key missing."""
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("test_user")
+        api.process_command("store_memory", "favourite sport is cricket", "cricket")
+        # Slightly different phrasing — exact match fails, semantic should succeed
+        result = api.process_command("retrieve_memory", "favourite sport is cricket")
+        self.assertEqual(result, "cricket")
+
+    def test_api_missing_memory_returns_message(self):
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("test_user")
+        result = api.process_command("retrieve_memory", "totally unknown fact xyz")
+        self.assertIn("No memory found", result)
+
+    def test_status_stored_memories_reflects_memory_store(self):
+        from main_controller import StarkAssistant as ApiAssistant
+        api = ApiAssistant("test_user")
+        self.assertEqual(api.get_status()["stored_memories"], 0)
+        api.process_command("store_memory", "k1", "v1")
+        api.process_command("store_memory", "k2", "v2")
+        self.assertEqual(api.get_status()["stored_memories"], 2)
 
 
 if __name__ == "__main__":

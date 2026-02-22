@@ -30,6 +30,7 @@ from dotenv import load_dotenv
 
 from .brain import Brain, IntentRegistry
 from .memory_store import MemoryStore
+from .planner import Planner
 from .voice import listen, speak
 from .automation import execute_action
 
@@ -88,6 +89,7 @@ class StarkAssistant:
         self.work_start_time: Optional[datetime.datetime] = None
 
         self._brain = Brain()
+        self._planner = Planner(self._brain)
         self._registry = IntentRegistry()
         self._register_intents()
         self._greet()
@@ -301,6 +303,14 @@ class StarkAssistant:
             priority=25,
         )
 
+        # Goal planning (22) — decomposes a high-level goal into steps
+        reg.register(
+            "plan",
+            lambda c: _contains_any(c, ("plan ", "create plan", "make plan", "help me plan", "plan my")),
+            self._handle_plan,
+            priority=22,
+        )
+
         # Domain-specific AI roles (20 – routes to Gemini with role context)
         reg.register(
             "education",
@@ -492,6 +502,29 @@ class StarkAssistant:
         speak("At what time, Sir?")
         reminder_time = listen(timeout=10)
         speak(f"Reminder set: {reminder_text!r} at {reminder_time}, Sir.")
+        return True
+
+    def _handle_plan(self, command: str, **_) -> bool:
+        """Decompose a high-level goal into an ordered plan using the Planner."""
+        import re
+        # Remove trigger phrases (longest first to avoid partial overlap)
+        # then strip filler words from the goal string.
+        goal = re.sub(
+            r"\b(stark|create plan for|make plan for|help me plan|plan my|create plan|make plan|plan)\b",
+            "",
+            command,
+            flags=re.IGNORECASE,
+        ).strip()
+        if not goal:
+            speak("What goal would you like me to plan, Sir?")
+            goal = listen(phrase_time_limit=20)
+        if goal:
+            plan_text = self._planner.plan_as_text(goal)
+            print(plan_text)
+            speak(
+                f"I have created a plan for '{goal}', Sir. "
+                "The steps are displayed on your screen."
+            )
         return True
 
     # ------------------------------------------------------------------
