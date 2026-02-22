@@ -12,3 +12,14 @@ twilio==8.10.0
 pyngrok==5.1.0
 google-cloud-texttospeech==2.14.0
 google-cloud-speech==2.21.0
+# AI brain
+google-generativeai==0.8.3
+# YouTube / WhatsApp automation
+pywhatkit==5.4
+# System controls (volume / brightness)
+pyautogui==0.9.54
+screen-brightness-control==0.23.0
+# Camera access
+opencv-python==4.10.0.84
+# General knowledge
+wikipedia==1.4.0
